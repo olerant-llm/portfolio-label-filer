@@ -1,0 +1,2041 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Label Filer</title>
+<style>
+  :root {
+    /* ダーク：ほぼモノクロのニュートラルグレー階調。アクセントは要所のみ */
+    --canvas: #0e0e10;
+    --surface: #161618;
+    --surface-raised: #1d1d20;
+    --surface-sunken: #0a0a0b;
+    --hover: #27272b;
+    --border: #2a2a2e;
+    --border-strong: #3a3a40;
+    --text: #f4f4f5;
+    --text-muted: #a1a1aa;
+    --text-faint: #71717a;
+    --accent: #e4e4e7;          /* 主役ボタン＝高コントラストの明色（Vercel流） */
+    --accent-hover: #ffffff;
+    --accent-press: #d4d4d8;
+    --on-accent: #0e0e10;       /* 主役ボタンの上に乗る文字色 */
+    --focus: #6e8fd6;           /* フォーカス枠・状態表示の最小アクセント */
+    --focus-tint: rgba(110, 143, 214, 0.16);
+    --danger: #e5727c;
+    --success: #4caf7d;
+    --warning: #e0b34d;
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-full: 999px;
+    --shadow-pop: 0 1px 2px rgba(0,0,0,0.4);
+    --card-min: 180px;
+  }
+  :root[data-theme="light"] {
+    /* ライト：白〜淡グレー基調。アクセントは黒に近い濃色 */
+    --canvas: #fbfbfc;
+    --surface: #ffffff;
+    --surface-raised: #ffffff;
+    --surface-sunken: #f1f1f3;
+    --hover: #f1f1f3;
+    --border: #e4e4e7;
+    --border-strong: #d4d4d8;
+    --text: #18181b;
+    --text-muted: #52525b;
+    --text-faint: #8a8a93;
+    --accent: #18181b;          /* 主役ボタン＝ほぼ黒 */
+    --accent-hover: #000000;
+    --accent-press: #3f3f46;
+    --on-accent: #ffffff;
+    --focus: #3a72b8;
+    --focus-tint: rgba(58, 114, 184, 0.12);
+    --danger: #c23b46;
+    --success: #2f8f5f;
+    --warning: #b9842c;
+    --shadow-pop: 0 1px 2px rgba(0,0,0,0.08);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, "Segoe UI", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+    background: var(--canvas);
+    color: var(--text);
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--radius-full); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }
+  header { flex: 0 0 auto; padding: 0.8rem 1rem; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
+  .toolbarGroup {
+    display: flex;
+    gap: 2px;
+    background: var(--surface-sunken);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 3px;
+  }
+  .toolbarGroup button {
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: transparent;
+    border-color: transparent;
+    color: var(--text-muted);
+  }
+  .toolbarGroup button:hover { background: var(--hover); border-color: transparent; color: var(--text); }
+  .btnIcon { font-size: 14px; }
+  /* 土台＝標準ボタン（中立。グレーの面＋ヘアライン枠） */
+  button {
+    background: var(--surface-raised);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 0.45rem 0.85rem;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+  button:hover { background: var(--hover); border-color: var(--border-strong); }
+  button:active { background: var(--surface-sunken); }
+  button:disabled { background: var(--surface-raised); border-color: var(--border); color: var(--text-faint); cursor: default; }
+  /* 主役ボタン＝高コントラストの塗り（画面内で数個だけ） */
+  button.primary {
+    background: var(--accent);
+    color: var(--on-accent);
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+  button.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  button.primary:active { background: var(--accent-press); border-color: var(--accent-press); }
+  button.primary:disabled { background: var(--surface-raised); border-color: var(--border); color: var(--text-faint); }
+  /* 控えめボタン＝枠だけ */
+  button.secondary {
+    background: transparent;
+    border-color: var(--border);
+    color: var(--text-muted);
+  }
+  button.secondary:hover { background: var(--hover); border-color: var(--border-strong); color: var(--text); }
+  button.secondary:active { background: var(--surface-sunken); }
+  button.secondary:disabled { background: transparent; border-color: var(--border); color: var(--text-faint); }
+  /* 危険ボタン */
+  button.danger { background: transparent; border-color: var(--danger); color: var(--danger); }
+  button.danger:hover { background: var(--danger); border-color: var(--danger); color: #fff; }
+  #centerToast {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.95);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: var(--surface-raised);
+    border: 1px solid var(--focus);
+    border-radius: var(--radius-md);
+    padding: 1rem 1.6rem;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.2s, transform 0.2s;
+    z-index: 9999;
+  }
+  #centerToast.show {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  #centerSpinner {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: none;
+    z-index: 9998;
+    pointer-events: none;
+  }
+  #centerSpinner.show { display: block; }
+  #centerSpinner .spinnerRing {
+    width: 64px;
+    height: 64px;
+    border: 6px solid var(--border);
+    border-top-color: var(--focus);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  button:focus-visible, input:focus-visible, select:focus-visible {
+    outline: none;
+    border-color: var(--focus);
+    box-shadow: 0 0 0 3px var(--focus-tint);
+  }
+  #langSelect, #themeSelect {
+    background: var(--surface-sunken);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.4rem 0.6rem;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  #langSelect:hover, #themeSelect:hover { border-color: var(--border-strong); }
+  #statusBar {
+    flex: 0 0 auto;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 0.4rem 1rem 0.5rem;
+  }
+  #folders { font-size: 12px; color: var(--text-faint); }
+  #status { font-size: 13px; color: var(--text-muted); min-height: 1.2em; }
+  #progressWrap { padding-top: 0.3rem; display: none; }
+  #progressBar { width: 100%; max-width: 480px; height: 8px; background: var(--surface-raised); border-radius: var(--radius-full); overflow: hidden; }
+  #progressFill { height: 100%; width: 0%; background: var(--success); transition: width 0.2s; }
+  #progressText { font-size: 12px; color: var(--text-muted); margin-top: 0.3rem; }
+  #dropOverlay {
+    display: none;
+    position: fixed;
+    inset: 12px;
+    border: 2px dashed var(--focus);
+    border-radius: var(--radius-md);
+    background: rgba(0, 0, 0, 0.7);
+    color: var(--text);
+    font-size: 20px;
+    align-items: center;
+    justify-content: center;
+    z-index: 400;
+    pointer-events: none;
+  }
+  #main { flex: 1 1 auto; min-height: 0; display: flex; align-items: flex-start; }
+  #tagPanel {
+    width: 220px;
+    flex: 0 0 220px;
+    height: 100%;
+    overflow-y: auto;
+    background: var(--surface);
+    padding: 0.6rem 0.8rem;
+    border-right: 1px solid var(--border);
+  }
+  #tagResizeHandle {
+    flex: 0 0 6px;
+    width: 6px;
+    align-self: stretch;
+    cursor: col-resize;
+    background: var(--surface);
+  }
+  #tagResizeHandle:hover { background: var(--focus); }
+  #tagPanel h3 { font-size: 13px; font-weight: 600; color: var(--text-muted); margin: 0.2rem 0 0.5rem; }
+  #tagPanel.disabledPanel { opacity: 0.45; pointer-events: none; }
+  #tagPanelDisabledNote { font-size: 12px; color: var(--warning); margin-bottom: 0.5rem; }
+  .tagsHint { font-size: 11px; color: var(--text-faint); margin: 0.1rem 0 0.5rem; }
+  #tagSearch {
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 12px;
+    background: var(--surface-sunken);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.35rem 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+  .modeToggle { display: flex; gap: 0.4rem; margin-bottom: 0.6rem; }
+  .modeToggle label {
+    font-size: 12px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    cursor: pointer;
+    padding: 0.35rem 0.7rem;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--border);
+    background: var(--surface-sunken);
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+  .modeToggle label.active { background: var(--focus-tint); border-color: var(--focus); color: var(--text); }
+  .modeToggle input[type="radio"] { display: none; }
+  .tagRow {
+    font-size: 12px;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.3rem 0.5rem;
+    margin-bottom: 3px;
+    border-radius: var(--radius-full);
+    background: var(--surface-sunken);
+    border: 1px solid var(--border);
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .tagRow.active { background: var(--focus-tint); border-color: var(--focus); }
+  .tagRow .tagLabel { display: flex; align-items: center; gap: 0.4rem; flex: 1; min-width: 0; cursor: pointer; }
+  .tagRow .tagName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tagRow input[type="checkbox"] { display: none; }
+  .tagRow .tagTranslateBtn { flex: 0 0 auto; background: none; border: none; color: var(--text-muted); font-size: 11px; padding: 0.1rem 0.3rem; border-radius: var(--radius-sm); }
+  .tagRow .tagTranslateBtn:hover { background: var(--surface-raised); color: var(--text); }
+  .tagRow .tagTranslateInput { flex: 1; min-width: 0; font-size: 12px; background: var(--surface-sunken); color: var(--text); border: 1px solid var(--focus); border-radius: var(--radius-sm); padding: 0.15rem 0.3rem; }
+  .tagRow span.cnt { color: var(--text-faint); margin-left: auto; }
+  #tagClear { font-size: 12px; }
+  #content { flex: 1; min-width: 0; height: 100%; overflow-y: auto; }
+  #content.similarMode { background: var(--surface-sunken); }
+  #similarBar {
+    display: none;
+    align-items: center;
+    gap: 0.8rem;
+    padding: 0.5rem 1rem;
+    font-size: 13px;
+    color: var(--text);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  #similarBase { display: flex; align-items: center; gap: 0.6rem; }
+  #similarFilterBar {
+    display: none;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.4rem 1rem;
+    font-size: 12px;
+    color: var(--text);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  #gridToolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 1rem;
+    font-size: 12px;
+    color: var(--text-muted);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  #cardSizeSlider { width: 120px; accent-color: var(--focus); }
+  #simThresholdSlider { width: 160px; accent-color: var(--focus); }
+  #simThresholdInput {
+    width: 60px;
+    font-size: 12px;
+    background: var(--surface-sunken);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.25rem 0.4rem;
+  }
+  #simThresholdLabel { color: var(--focus); min-width: 6em; }
+  #similarBaseImg { width: 56px; height: 56px; object-fit: cover; border-radius: var(--radius-sm); border: 2px solid var(--focus); background: var(--surface-sunken); }
+  #grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(var(--card-min), 1fr));
+    gap: 12px;
+    padding: 1rem;
+  }
+  #grid.galleryMode {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0;
+  }
+  #grid.galleryMode .card {
+    border-radius: 0;
+  }
+  #grid.galleryMode .card img {
+    width: 100%;
+    height: auto;
+    aspect-ratio: auto;
+    object-fit: contain;
+    max-height: 85vh;
+    cursor: zoom-in;
+  }
+  #grid.galleryMode .cardSelectBox {
+    display: none;
+  }
+  .card {
+    position: relative;
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    transition: border-color 0.15s;
+  }
+  .card:hover { border-color: var(--border-strong); }
+  .card img { width: 100%; aspect-ratio: 1 / 1; height: auto; object-fit: cover; display: block; background: var(--surface-sunken); cursor: pointer; }
+  .card .score { font-size: 11px; font-weight: 600; padding: 0.4rem 0.5rem; }
+  .cardSelectBox {
+    position: absolute;
+    bottom: 6px;
+    right: 6px;
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    cursor: pointer;
+    z-index: 2;
+  }
+  #selectionBar {
+    display: none;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 1rem;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  #selectionBar.show { display: flex; }
+
+  .modalOverlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  .modalBox {
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    width: min(560px, 92vw);
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 1rem 1.2rem;
+  }
+  .modalHeader { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 0.6rem; }
+  .modalHeader img { width: 72px; height: 72px; object-fit: cover; border-radius: var(--radius-sm); background: var(--surface-sunken); cursor: pointer; }
+  #imgPreviewOverlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    align-items: center;
+    justify-content: center;
+    z-index: 300;
+    cursor: zoom-out;
+  }
+  #imgPreviewOverlay img { max-width: 92vw; max-height: 92vh; object-fit: contain; border-radius: var(--radius-sm); }
+  .modalHeader .filename { font-size: 13px; color: var(--text); word-break: break-all; flex: 1; }
+  .modalHeader .renameInput { font-size: 13px; flex: 1; min-width: 0; background: var(--surface-sunken); color: var(--text); border: 1px solid var(--focus); border-radius: var(--radius-sm); padding: 0.2rem 0.4rem; }
+  .renameBtn { flex: 0 0 auto; background: none; border: none; color: var(--text-muted); font-size: 14px; padding: 0.2rem 0.3rem; border-radius: var(--radius-sm); }
+  .renameBtn:hover { background: var(--hover); color: var(--text); }
+  .modalFindSimilar { flex: 0 0 auto; font-size: 12px; padding: 0.35rem 0.6rem; }
+  .modalClose { flex: 0 0 auto; }
+  .modalSection h4 { font-size: 12px; font-weight: 600; color: var(--text-muted); margin: 0.8rem 0 0.4rem; }
+  .metaBox {
+    font-size: 11px;
+    color: var(--text-muted);
+    background: var(--surface-sunken);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.5rem;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 160px;
+    overflow-y: auto;
+  }
+  .tagChips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+  .tagChip {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-full);
+    padding: 0.2rem 0.3rem 0.2rem 0.6rem;
+    font-size: 12px;
+    color: var(--text);
+  }
+  .tagChipName { cursor: pointer; }
+  .tagChipName:hover { text-decoration: underline; }
+  .tagChip button {
+    background: none;
+    border: none;
+    color: var(--danger);
+    padding: 0 0.3rem;
+    font-size: 12px;
+    border-radius: var(--radius-full);
+  }
+  .tagChip button:hover { background: var(--surface-raised); }
+  .tagAddWrap { position: relative; margin-top: 0.5rem; }
+  .tagAddInput {
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 12px;
+    background: var(--surface-sunken);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.35rem 0.5rem;
+  }
+  .suggestBox {
+    position: fixed;
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    max-height: 220px;
+    overflow-y: auto;
+    z-index: 200;
+  }
+  .suggestItem { padding: 0.35rem 0.5rem; font-size: 12px; color: var(--text); cursor: pointer; }
+  .suggestItem:hover, .suggestItem.active { background: var(--focus-tint); }
+  .tagModalStatus { font-size: 12px; color: var(--danger); min-height: 1.2em; margin-top: 0.3rem; }
+
+  .libraryMenu { position: relative; display: flex; }
+  .libraryDropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 4px;
+    min-width: 280px;
+    max-width: 420px;
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 4px;
+    z-index: 300;
+  }
+  .libraryDropdown.open { display: block; }
+  .libraryDropdown .libItem {
+    font-size: 12px;
+    padding: 0.4rem 0.6rem;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .libraryDropdown .libItem:hover { background: var(--focus-tint); }
+  .libraryDropdown .libHistoryRow { display: flex; align-items: center; gap: 2px; }
+  .libraryDropdown .libHistoryPath { flex: 1; min-width: 0; }
+  .libraryDropdown .libRemove {
+    flex: 0 0 auto;
+    padding: 0.25rem 0.45rem;
+    border: 0;
+    background: transparent;
+    color: var(--text-muted);
+  }
+  .libraryDropdown .libRemove:hover { color: var(--danger); background: var(--focus-tint); }
+  .libraryDropdown .libDivider { border-top: 1px solid var(--border); margin: 4px 0; }
+
+  #libraryPickerOverlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: var(--canvas);
+    color: var(--text);
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.8rem;
+    z-index: 500;
+    text-align: center;
+    padding: 2rem;
+  }
+  #libraryPickerOverlay.show { display: flex; }
+  #libraryPickerOverlay h2 { font-size: 16px; margin: 0; }
+  #libraryPickerOverlay p { color: var(--text-muted); font-size: 13px; max-width: 480px; margin: 0; }
+
+  /* セグメント型タブ：沈んだトラックの中で、選択中だけ浮き出る */
+  .tagPanelTabs {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 0.7rem;
+    padding: 3px;
+    background: var(--surface-sunken);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+  }
+  .tagPanelTabs button {
+    flex: 1;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 0.35rem 0.5rem;
+    border-radius: 4px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-muted);
+  }
+  .tagPanelTabs button:hover { background: transparent; border-color: transparent; color: var(--text); }
+  .tagPanelTabs button.active {
+    background: var(--surface-raised);
+    border-color: var(--border);
+    color: var(--text);
+    box-shadow: var(--shadow-pop);
+  }
+  .presetRow .presetName { flex: 1; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .presetRow .presetDelete { flex: 0 0 auto; background: none; border: none; color: var(--text-faint); cursor: pointer; padding: 0 0.3rem; font-size: 13px; }
+  .presetRow .presetDelete:hover { color: var(--danger); background: none; }
+  #presetSaveBtn { width: 100%; margin-bottom: 0.6rem; }
+  #presetEmpty { font-size: 12px; color: var(--text-faint); }
+</style>
+</head>
+<body>
+  <header>
+    <div class="toolbarGroup">
+      <div class="libraryMenu">
+        <button id="btnLibrary"><span class="btnIcon">📁</span><span data-i18n="btnLibrary">ライブラリ</span></button>
+        <div class="libraryDropdown" id="libraryDropdown"></div>
+      </div>
+      <button id="btnTag" class="primary"><span class="btnIcon">🏷️</span><span data-i18n="btnTag">タグ付け開始</span></button>
+    </div>
+    <select id="themeSelect" style="margin-left:auto;">
+      <option value="dark" data-i18n="themeDark">ダーク</option>
+      <option value="light" data-i18n="themeLight">ライト</option>
+    </select>
+    <select id="langSelect">
+      <option value="ja">日本語</option>
+      <option value="en">English</option>
+    </select>
+  </header>
+  <div id="dropOverlay" data-i18n="dropOverlayText">ここに画像・フォルダをドロップして取り込み</div>
+  <div id="libraryPickerOverlay">
+    <h2 data-i18n="libraryPickerHeading">ライブラリを選択してください</h2>
+    <p data-i18n="libraryPickerNote">フォルダを選ぶと、そのフォルダの中にデータベースが作られます。次回からはそのフォルダをそのまま開けます。</p>
+    <button id="btnPickLibraryInitial" class="primary" data-i18n="libraryPickerButton">フォルダを選ぶ</button>
+  </div>
+  <div id="main">
+    <div id="tagPanel">
+      <div class="tagPanelTabs">
+        <button id="tabBtnFilter" class="active" data-i18n="tagPanelHeading">タグで絞り込み</button>
+        <button id="tabBtnPresets" data-i18n="presetsTabHeading">プリセット</button>
+      </div>
+      <div id="tagFilterView">
+        <button id="presetSaveBtn" class="primary" data-i18n="presetSaveBtn">＋ 今の絞り込みを保存</button>
+        <div id="tagPanelDisabledNote" data-i18n="tagPanelDisabledNote" style="display:none;">似ている画像を表示中はタグ絞り込みは使えません</div>
+        <div class="modeToggle" style="align-items: center;">
+          <label><input type="radio" name="tagMode" value="and" checked> <span data-i18n="modeAnd">すべて含む</span></label>
+          <label><input type="radio" name="tagMode" value="or"> <span data-i18n="modeOr">いずれか含む</span></label>
+          <button id="tagClear" class="secondary" style="font-size: 12px; padding: 0.35rem 0.7rem; border-radius: var(--radius-full); margin-left: auto;" data-i18n="tagClear">選択をクリア</button>
+        </div>
+        <input type="text" id="tagSearch" data-i18n-placeholder="tagSearchPlaceholder" placeholder="タグを検索（英語名・日本語訳）">
+        <div id="tagList"></div>
+      </div>
+      <div id="presetView" style="display:none;">
+        <div id="presetList"></div>
+        <div id="presetEmpty" data-i18n="presetEmpty" style="display:none;">まだプリセットがありません</div>
+      </div>
+    </div>
+    <div id="tagResizeHandle"></div>
+    <div id="content">
+      <div id="similarBar">
+        <div id="similarBase">
+          <img id="similarBaseImg" src="">
+          <span id="similarLabel"></span>
+        </div>
+        <button class="secondary" id="similarBack" data-i18n="similarBack">ギャラリーに戻る</button>
+      </div>
+      <div id="similarFilterBar">
+        <span data-i18n="similarFilterLabel">類似度で絞り込み:</span>
+        <input type="range" id="simThresholdSlider" min="0" max="100" value="0">
+        <input type="number" id="simThresholdInput" min="0" max="100" data-i18n-placeholder="thresholdPlaceholder" placeholder="手入力%">
+        <span id="simThresholdLabel" data-i18n="thresholdNone">絞り込み無し</span>
+      </div>
+      <div id="gridToolbar">
+        <span id="cardSizeWrap">
+          <span data-i18n="cardSizeLabel">カード表示サイズ:</span>
+          <input type="range" id="cardSizeSlider" min="0" max="2" step="1" value="1">
+        </span>
+        <button class="secondary" id="btnGalleryMode" data-i18n="btnGalleryMode">🖼️ ギャラリーモード</button>
+      </div>
+      <div id="selectionBar">
+        <span id="selectionCount"></span>
+        <button class="secondary" id="btnSelectAll" data-i18n="selectAll">全選択</button>
+        <button class="secondary" id="btnSelectClear" data-i18n="selectClear">選択解除</button>
+        <button id="btnMoveSelected" class="primary" data-i18n="moveSelected">選択した画像を移動...</button>
+        <button class="danger" id="btnDeleteSelected" data-i18n="deleteSelected">削除</button>
+      </div>
+      <div id="grid"></div>
+    </div>
+  </div>
+  <div id="statusBar">
+    <div id="folders">登録フォルダ: なし</div>
+    <div id="status"></div>
+    <div id="progressWrap">
+      <div id="progressBar"><div id="progressFill"></div></div>
+      <div id="progressText"></div>
+    </div>
+  </div>
+
+  <div class="modalOverlay" id="tagModalOverlay">
+    <div class="modalBox">
+      <div class="modalHeader">
+        <img id="tagModalImg" src="">
+        <span class="filename" id="tagModalFilename"></span>
+        <button class="renameBtn" id="tagModalRenameBtn" data-i18n-title="renameTitle" title="名前を変更">✎</button>
+        <button class="modalFindSimilar" id="tagModalFindSimilar" data-i18n="findSimilar">似ている画像を探す</button>
+        <button class="secondary modalClose" id="tagModalClose" data-i18n="close">閉じる</button>
+      </div>
+      <div class="modalSection" id="tagModalMetaSection" style="display:none;">
+        <h4 data-i18n="metadataHeading">生成情報</h4>
+        <div class="metaBox" id="tagModalMeta"></div>
+      </div>
+      <div class="modalSection" id="tagModalDocPreviewSection" style="display:none;">
+        <h4 data-i18n="documentContentHeading">文書プレビュー</h4>
+        <div class="metaBox" id="tagModalDocPreview" style="max-height: 200px; font-family: monospace; font-size:12px;"></div>
+      </div>
+      <div class="modalSection" id="tagModalTagSpacesSection">
+        <h4 data-i18n="tagspacesHeader">TagSpaces連携</h4>
+        <div style="display:flex; gap:0.5rem; margin-top:0.4rem;">
+          <button id="btnEmbedTags" class="secondary" style="font-size:12px; padding:0.35rem 0.6rem;" data-i18n="embedTagsBtn">タグをファイル名に埋め込む</button>
+          <button id="btnExportSidecar" class="secondary" style="font-size:12px; padding:0.35rem 0.6rem;" data-i18n="exportSidecarBtn">サイドカーJSONを出力</button>
+        </div>
+      </div>
+      <div class="modalSection">
+        <h4 data-i18n="tagsHeading">付いているタグ</h4>
+        <p class="tagsHint" data-i18n="tagsClickHint">タグ名をクリックすると、自動的にタグ絞り込みにそのタグが追加されます</p>
+        <div class="tagChips" id="tagModalChips"></div>
+      </div>
+      <div class="modalSection">
+        <h4 data-i18n="addTagHeading">タグを追加</h4>
+        <div class="tagAddWrap">
+          <input type="text" class="tagAddInput" id="tagModalAddInput" data-i18n-placeholder="tagAddPlaceholder" placeholder="英語名・日本語訳で検索、または新しいタグを入力してEnter">
+          <div class="suggestBox" id="tagModalSuggest" style="display:none;"></div>
+        </div>
+        <div class="tagModalStatus" id="tagModalStatus"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="imgPreviewOverlay">
+    <img id="imgPreviewImg" src="">
+  </div>
+
+  <div id="centerToast">
+    <span id="centerToastText"></span>
+    <button id="centerToastOk">OK</button>
+  </div>
+
+  <div id="centerSpinner"><div class="spinnerRing"></div></div>
+
+<script>
+const api = () => window.pywebview.api;
+
+// ---- 言語切替 ----
+
+const I18N = {
+  ja: {
+    btnLibrary: 'ライブラリ',
+    themeDark: 'ダーク',
+    themeLight: 'ライト',
+    btnTag: 'タグ付け開始',
+    btnStopTagging: '途中停止',
+    btnStoppingTagging: '停止中...',
+    dropOverlayText: 'ここに画像・フォルダをドロップして取り込み',
+    tagPanelHeading: 'タグで絞り込み',
+    tagPanelDisabledNote: '似ている画像を表示中はタグ絞り込みは使えません',
+    modeAnd: 'すべて含む',
+    modeOr: 'いずれか含む',
+    tagClear: '選択をクリア',
+    tagSearchPlaceholder: 'タグを検索（英語名・日本語訳）',
+    similarBack: 'ギャラリーに戻る',
+    similarFilterLabel: '類似度で絞り込み:',
+    thresholdPlaceholder: '手入力%',
+    thresholdNone: '絞り込み無し',
+    thresholdAtLeast: (p) => `${p.pct}%以上`,
+    findSimilar: '似ている画像を探す',
+    close: '閉じる',
+    metadataHeading: '生成情報',
+    tagsHeading: '付いているタグ',
+    tagsClickHint: 'タグ名をクリックすると、自動的にタグ絞り込みにそのタグが追加されます',
+    addTagHeading: 'タグを追加',
+    tagAddPlaceholder: '英語名・日本語訳で検索、または新しいタグを入力してEnter',
+    renameTitle: '名前を変更',
+    editTranslation: '日本語訳を追加・編集',
+    removeTagTitle: 'このタグを削除',
+    noTagsYet: 'タグはまだありません',
+    cardSizeLabel: 'カード表示サイズ:',
+    btnGalleryMode: '🖼️ ギャラリーモード',
+    selectAll: '全選択',
+    selectClear: '選択解除',
+    moveSelected: '選択した画像を移動...',
+    selectionCount: (p) => `${p.count}件選択中`,
+    moveSucceeded: (p) => `${p.moved}件を移動しました`,
+    moveFailedSome: (p) => `${p.moved}件を移動しました（${p.failed}件は失敗）`,
+    moveFailed: '移動できませんでした',
+    deleteSelected: '削除',
+    deleteConfirm: (p) => `${p.count}件の画像を削除します。元に戻せません。よろしいですか？`,
+    deleteSucceeded: (p) => `${p.deleted}件を削除しました`,
+    deleteFailedSome: (p) => `${p.deleted}件を削除しました（${p.failed}件は失敗）`,
+    deleteFailed: '削除できませんでした',
+    filterByThisTag: 'クリックでこのタグで絞り込み',
+    noSuggestions: '候補がありません',
+    similarityLabel: (p) => `類似度 ${p.pct}%`,
+    libraryLabel: (p) => p.path ? `ライブラリ: ${p.path}` : 'ライブラリ: 未選択',
+    libraryPickerHeading: 'ライブラリを選択してください',
+    libraryPickerNote: 'フォルダを選ぶと、そのフォルダの中にデータベースが作られます。次回からはそのフォルダをそのまま開けます。',
+    libraryPickerButton: 'フォルダを選ぶ',
+    libraryNoRecent: '最近使ったフォルダはありません',
+    libraryBrowse: '📂 ほかのフォルダを開く...',
+    libraryRemoveHistory: '最近使った一覧から外す（画像やタグは削除しません）',
+    libraryHistoryRemoved: 'ライブラリを最近使った一覧から外しました。画像やタグは残っています。',
+    libraryOpening: 'ライブラリを開いています...',
+    libraryOpened: 'ライブラリを開きました。',
+    no_library: 'ライブラリが開かれていません',
+    presetsTabHeading: 'プリセット',
+    presetEmpty: 'まだプリセットがありません',
+    presetSaveBtn: '＋ タグ選択をプリセットに追加',
+    presetNamePrompt: 'プリセットの名前を入力してください',
+    presetSaved: 'プリセットを保存しました。',
+    presetDelete: 'このプリセットを削除',
+    name_required: '名前を入力してください',
+    tags_required: 'タグが選択されていません',
+    scanning: 'スキャン中...（画像数によって時間がかかります）',
+    scanComplete: (p) => `スキャン完了：新規 ${p.added} 件 / スキップ ${p.skipped} 件 / 削除済み検知 ${p.removed} 件`,
+    taggingProgress: (p) => `${p.total}枚中 ${p.done}枚 処理済み　処理中: ${p.current || '-'}`,
+    taggingError: (p) => `タグ付け中にエラーが発生しました: ${p.error}`,
+    taggingComplete: (p) => `タグ付け完了：${p.done} / ${p.total} 枚`,
+    taggingNoTargets: 'タグ付け対象の画像はありませんでした（すべて処理済みです）',
+    taggingStartFailed: 'タグ付けを開始できませんでした',
+    taggingRunning: (p) => `タグ付けを実行中です（${p.workers}並列で処理中。画像枚数が多いと時間がかかる場合があります）...`,
+    taggingStopRequested: '安全に停止しています。現在処理中の分が終わるまで少しお待ちください...',
+    taggingStopped: (p) => `タグ付けを途中停止しました：${p.done} / ${p.total} 件まで保存済み`,
+    droppedNoImages: '画像が見つかりませんでした',
+    importConfirm: (p) => `${p.count}件の画像を取り込みます。タグ付けまで少し時間がかかりますが、よろしいですか？`,
+    importing: (p) => `取り込み中 ${p.current}/${p.total}件...`,
+    importComplete: (p) => `取り込み完了：${p.imported}件（スキップ ${p.skipped}件）`,
+    renameFailed: '名前の変更に失敗しました',
+    renamed: (p) => `「${p.oldName}」を「${p.newName}」に変更しました`,
+    similarCount: (p) => `似ている画像 ${p.count} 件`,
+    noSimilarMatch: '条件に合う似ている画像が見つかりませんでした',
+    similarLabelText: (p) => `「${p.filename}」(比較元) に似ている画像`,
+    similarFetchError: (p) => `似ている画像の取得中にエラーが発生しました: ${p.err}`,
+    filterError: (p) => `絞り込み中にエラーが発生しました: ${p.err}`,
+    filteredCount: (p) => `絞り込み中：${p.count} 件表示`,
+    addFailed: '追加に失敗しました',
+    deleteFailed: '削除に失敗しました',
+    folder_not_found: 'フォルダが見つかりません',
+    invalid_destination: '移動先フォルダが不正です',
+    destination_outside_library: 'ライブラリ内のフォルダを選んでください',
+    unsupported_format: '対応していない形式です',
+    image_read_failed: '画像を読み込めませんでした',
+    register_failed: '登録に失敗しました',
+    filename_required: 'ファイル名を入力してください',
+    filename_invalid_chars: 'ファイル名に使えない文字が含まれています',
+    image_not_found: '画像が見つかりません',
+    filename_conflict: '同じ名前のファイルが既に存在します',
+    rename_failed: 'ファイル名の変更に失敗しました',
+    tag_not_found: 'タグが見つかりません',
+    already_running: 'すでに実行中です',
+    tagging_running: 'タグ付けを途中停止してからライブラリを切り替えてください',
+    embedTagsBtn: 'タグをファイル名に埋め込む',
+    exportSidecarBtn: 'サイドカーJSONを出力',
+    tagspacesHeader: 'TagSpaces連携',
+    documentContentHeading: '文書プレビュー',
+    embedSucceeded: 'ファイル名にタグを埋め込みました',
+    exportSucceeded: 'サイドカーJSONを出力しました',
+  },
+  en: {
+    btnLibrary: 'Library',
+    themeDark: 'Dark',
+    themeLight: 'Light',
+    btnTag: 'Start Tagging',
+    btnStopTagging: 'Stop Tagging',
+    btnStoppingTagging: 'Stopping...',
+    dropOverlayText: 'Drop images or a folder here to import',
+    tagPanelHeading: 'Filter by Tags',
+    tagPanelDisabledNote: "Tag filtering is unavailable while viewing similar images",
+    modeAnd: 'Match all',
+    modeOr: 'Match any',
+    tagClear: 'Clear selection',
+    tagSearchPlaceholder: 'Search tags (English or Japanese)',
+    similarBack: 'Back to Gallery',
+    similarFilterLabel: 'Filter by similarity:',
+    thresholdPlaceholder: 'Custom %',
+    thresholdNone: 'No filter',
+    thresholdAtLeast: (p) => `${p.pct}% or more`,
+    findSimilar: 'Find Similar Images',
+    close: 'Close',
+    metadataHeading: 'Generation Info',
+    tagsHeading: 'Tags',
+    tagsClickHint: 'Click a tag name to add it to the filter automatically',
+    addTagHeading: 'Add Tag',
+    tagAddPlaceholder: 'Search by English/Japanese, or type a new tag and press Enter',
+    renameTitle: 'Rename',
+    editTranslation: 'Add / edit translation',
+    removeTagTitle: 'Remove this tag',
+    noTagsYet: 'No tags yet',
+    cardSizeLabel: 'Card size:',
+    btnGalleryMode: '🖼️ Gallery mode',
+    selectAll: 'Select all',
+    selectClear: 'Clear selection',
+    moveSelected: 'Move selected...',
+    selectionCount: (p) => `${p.count} selected`,
+    moveSucceeded: (p) => `Moved ${p.moved} image(s)`,
+    moveFailedSome: (p) => `Moved ${p.moved} image(s) (${p.failed} failed)`,
+    moveFailed: 'Could not move images',
+    deleteSelected: 'Delete',
+    deleteConfirm: (p) => `This will permanently delete ${p.count} image(s). This cannot be undone. Continue?`,
+    deleteSucceeded: (p) => `Deleted ${p.deleted} image(s)`,
+    deleteFailedSome: (p) => `Deleted ${p.deleted} image(s) (${p.failed} failed)`,
+    deleteFailed: 'Could not delete images',
+    filterByThisTag: 'Click to filter by this tag',
+    noSuggestions: 'No matches',
+    similarityLabel: (p) => `Similarity ${p.pct}%`,
+    libraryLabel: (p) => p.path ? `Library: ${p.path}` : 'Library: none selected',
+    libraryPickerHeading: 'Please select a library',
+    libraryPickerNote: 'Choosing a folder creates a database inside it. Next time, just open that same folder.',
+    libraryPickerButton: 'Choose Folder',
+    libraryNoRecent: 'No recent folders',
+    libraryBrowse: '📂 Open another folder...',
+    libraryRemoveHistory: 'Remove from recent list (images and tags will not be deleted)',
+    libraryHistoryRemoved: 'Removed the library from the recent list. Its images and tags remain.',
+    libraryOpening: 'Opening library...',
+    libraryOpened: 'Library opened.',
+    no_library: 'No library is open',
+    presetsTabHeading: 'Presets',
+    presetEmpty: 'No saved presets yet',
+    presetSaveBtn: '＋ Add tag selection to presets',
+    presetNamePrompt: 'Enter a name for this preset',
+    presetSaved: 'Preset saved.',
+    presetDelete: 'Delete this preset',
+    name_required: 'Please enter a name',
+    tags_required: 'No tags are selected',
+    scanning: 'Scanning... (may take a while depending on image count)',
+    scanComplete: (p) => `Scan complete: ${p.added} new, ${p.skipped} skipped, ${p.removed} removed`,
+    taggingProgress: (p) => `${p.done} / ${p.total} processed   Current: ${p.current || '-'}`,
+    taggingError: (p) => `An error occurred while tagging: ${p.error}`,
+    taggingComplete: (p) => `Tagging complete: ${p.done} / ${p.total}`,
+    taggingNoTargets: 'No images needed tagging (all already processed)',
+    taggingStartFailed: 'Could not start tagging',
+    taggingRunning: (p) => `Tagging in progress (running ${p.workers} in parallel; may take a while for many images)...`,
+    taggingStopRequested: 'Stopping safely. Please wait for the current work to finish...',
+    taggingStopped: (p) => `Tagging stopped: ${p.done} / ${p.total} item(s) saved`,
+    droppedNoImages: 'No images were found',
+    importConfirm: (p) => `This will import ${p.count} images. Tagging may take a moment — continue?`,
+    importing: (p) => `Importing ${p.current}/${p.total}...`,
+    importComplete: (p) => `Import complete: ${p.imported} imported (${p.skipped} skipped)`,
+    renameFailed: 'Failed to rename',
+    renamed: (p) => `Renamed "${p.oldName}" to "${p.newName}"`,
+    similarCount: (p) => `${p.count} similar images`,
+    noSimilarMatch: 'No similar images matched the filter',
+    similarLabelText: (p) => `Images similar to "${p.filename}" (reference)`,
+    similarFetchError: (p) => `An error occurred while fetching similar images: ${p.err}`,
+    filterError: (p) => `An error occurred while filtering: ${p.err}`,
+    filteredCount: (p) => `Filtered: showing ${p.count}`,
+    addFailed: 'Failed to add',
+    deleteFailed: 'Failed to delete',
+    folder_not_found: 'Folder not found',
+    invalid_destination: 'The destination folder is invalid',
+    destination_outside_library: 'Please choose a folder inside the library',
+    unsupported_format: 'Unsupported file format',
+    image_read_failed: "Couldn't read the image",
+    register_failed: 'Failed to register',
+    filename_required: 'Please enter a file name',
+    filename_invalid_chars: 'The file name contains invalid characters',
+    image_not_found: 'Image not found',
+    filename_conflict: 'A file with that name already exists',
+    rename_failed: 'Failed to rename the file',
+    tag_not_found: 'Tag not found',
+    already_running: 'Already running',
+    tagging_running: 'Stop tagging before switching libraries',
+    embedTagsBtn: 'Embed tags to filename',
+    exportSidecarBtn: 'Export sidecar JSON',
+    tagspacesHeader: 'TagSpaces Integration',
+    documentContentHeading: 'Document Preview',
+    embedSucceeded: 'Embedded tags to filename successfully',
+    exportSucceeded: 'Exported sidecar JSON successfully',
+  },
+};
+
+let currentLang = localStorage.getItem('lang') || 'ja';
+
+function tr(key, params) {
+  const dict = I18N[currentLang] || I18N.ja;
+  const entry = dict[key];
+  if (entry === undefined) return key;
+  return typeof entry === 'function' ? entry(params || {}) : entry;
+}
+
+function errMsg(result, fallbackKey) {
+  if (result.code) return tr(result.code);
+  return result.error || (fallbackKey ? tr(fallbackKey) : '');
+}
+
+function applyI18n() {
+  document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = tr(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => { el.placeholder = tr(el.dataset.i18nPlaceholder); });
+  document.querySelectorAll('[data-i18n-title]').forEach((el) => { el.title = tr(el.dataset.i18nTitle); });
+  document.documentElement.lang = currentLang;
+  updateTaggingButton(document.getElementById('btnTag').dataset.mode || 'idle');
+}
+
+function updateTaggingButton(mode) {
+  const button = document.getElementById('btnTag');
+  const label = button.querySelector('[data-i18n="btnTag"]');
+  button.dataset.mode = mode;
+  button.disabled = mode === 'stopping';
+  document.getElementById('btnLibrary').disabled = mode !== 'idle';
+  if (mode !== 'idle') document.getElementById('libraryDropdown').classList.remove('open');
+  button.classList.toggle('primary', mode === 'idle');
+  button.classList.toggle('danger', mode !== 'idle');
+  label.textContent = tr(mode === 'idle' ? 'btnTag' : mode === 'running' ? 'btnStopTagging' : 'btnStoppingTagging');
+}
+
+document.getElementById('langSelect').value = currentLang;
+applyI18n();
+document.getElementById('langSelect').addEventListener('change', async (e) => {
+  currentLang = e.target.value;
+  localStorage.setItem('lang', currentLang);
+  applyI18n();
+  await refreshLibraryState();
+  await refreshGrid();
+  await refreshTags();
+});
+
+let currentTheme = localStorage.getItem('theme') || 'dark';
+document.documentElement.setAttribute('data-theme', currentTheme);
+document.getElementById('themeSelect').value = currentTheme;
+document.getElementById('themeSelect').addEventListener('change', (e) => {
+  currentTheme = e.target.value;
+  localStorage.setItem('theme', currentTheme);
+  document.documentElement.setAttribute('data-theme', currentTheme);
+});
+
+function renderLibraryDropdown(recentRoots, activeRoot) {
+  const dropdown = document.getElementById('libraryDropdown');
+  dropdown.innerHTML = '';
+  if (recentRoots.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'libItem';
+    empty.textContent = tr('libraryNoRecent');
+    dropdown.appendChild(empty);
+  } else {
+    for (const root of recentRoots) {
+      const row = document.createElement('div');
+      row.className = 'libHistoryRow';
+      const item = document.createElement('div');
+      item.className = 'libItem libHistoryPath';
+      if (root === activeRoot) item.style.color = 'var(--focus)';
+      item.textContent = root;
+      item.title = root;
+      item.addEventListener('click', () => {
+        dropdown.classList.remove('open');
+        switchLibrary(root);
+      });
+      const removeButton = document.createElement('button');
+      removeButton.className = 'libRemove';
+      removeButton.type = 'button';
+      removeButton.textContent = '×';
+      removeButton.title = tr('libraryRemoveHistory');
+      removeButton.setAttribute('aria-label', `${tr('libraryRemoveHistory')}: ${root}`);
+      removeButton.addEventListener('click', async (event) => {
+        event.stopPropagation();
+        const result = await api().remove_library_history(root);
+        if (!result.ok) {
+          setStatus(errMsg(result));
+          return;
+        }
+        setStatus(tr('libraryHistoryRemoved'));
+        await refreshLibraryState();
+      });
+      row.appendChild(item);
+      row.appendChild(removeButton);
+      dropdown.appendChild(row);
+    }
+  }
+  const divider = document.createElement('div');
+  divider.className = 'libDivider';
+  dropdown.appendChild(divider);
+  const browseItem = document.createElement('div');
+  browseItem.className = 'libItem';
+  browseItem.textContent = tr('libraryBrowse');
+  browseItem.addEventListener('click', async () => {
+    dropdown.classList.remove('open');
+    const folder = await api().pick_folder();
+    if (folder) await switchLibrary(folder);
+  });
+  dropdown.appendChild(browseItem);
+}
+
+async function refreshLibraryState() {
+  const state = await api().get_app_state();
+  renderLibraryDropdown(state.recent_roots, state.active_root);
+  document.getElementById('libraryPickerOverlay').classList.toggle('show', !state.active_root);
+  document.getElementById('folders').textContent = tr('libraryLabel', { path: state.active_root });
+  return state;
+}
+
+async function switchLibrary(path) {
+  setStatus(tr('libraryOpening'));
+  const result = await api().open_library(path);
+  if (!result.ok) {
+    setStatus(errMsg(result));
+    return;
+  }
+  await refreshLibraryState();
+  await runAutoScan();
+  await refreshGrid();
+  await refreshTags();
+  await refreshPresets();
+}
+
+document.getElementById('btnLibrary').addEventListener('click', (e) => {
+  e.stopPropagation();
+  document.getElementById('libraryDropdown').classList.toggle('open');
+});
+document.addEventListener('click', (e) => {
+  const dropdown = document.getElementById('libraryDropdown');
+  if (!dropdown.contains(e.target) && e.target.id !== 'btnLibrary') dropdown.classList.remove('open');
+});
+document.getElementById('btnPickLibraryInitial').addEventListener('click', async () => {
+  const folder = await api().pick_folder();
+  if (folder) await switchLibrary(folder);
+});
+
+const selectedTags = new Set();
+let similarTarget = null; // { id, filename } while viewing "似ている画像"
+let similarFullResults = []; // similar_images()で取得した絞り込み前の全件
+let similarThreshold = 0; // 0〜100、類似度の絞り込みしきい値（0=絞り込み無し）
+
+function currentTagMode() {
+  return document.querySelector('input[name="tagMode"]:checked').value;
+}
+
+function scoreColor(score) {
+  // 0 = 赤、0.5 = 黄、1 = 緑 のグラデーション
+  const hue = Math.max(0, Math.min(1, score)) * 120;
+  return `hsl(${hue}, 75%, 55%)`;
+}
+
+let selectedImageIds = new Set();
+let currentGridImages = [];
+let currentShowScore = false;
+let galleryModeOn = localStorage.getItem('galleryMode') === '1';
+
+function renderCards(images, { showScore } = {}) {
+  currentGridImages = images;
+  currentShowScore = !!showScore;
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  for (const img of images) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    const scoreHtml = showScore && img.similarity !== undefined
+      ? `<div class="score" style="color:${scoreColor(img.similarity)}">${tr('similarityLabel', { pct: Math.round(img.similarity * 100) })}</div>`
+      : '';
+    const checked = selectedImageIds.has(img.id) ? 'checked' : '';
+    card.innerHTML = `<img src="${img.thumbnail_url ?? ''}" loading="lazy" title="${img.full_path}">
+                       <input type="checkbox" class="cardSelectBox" ${checked}>
+                       ${scoreHtml}`;
+    card.querySelector('img').addEventListener('click', () => {
+      if (galleryModeOn) showOriginalImagePreview(img);
+      else openTagModal(img);
+    });
+    card.querySelector('.cardSelectBox').addEventListener('change', (e) => {
+      if (e.target.checked) selectedImageIds.add(img.id);
+      else selectedImageIds.delete(img.id);
+      renderSelectionBar();
+    });
+    grid.appendChild(card);
+  }
+}
+
+function renderSelectionBar() {
+  const bar = document.getElementById('selectionBar');
+  bar.classList.toggle('show', selectedImageIds.size > 0);
+  document.getElementById('selectionCount').textContent = tr('selectionCount', { count: selectedImageIds.size });
+}
+
+document.getElementById('btnSelectAll').addEventListener('click', () => {
+  for (const img of currentGridImages) selectedImageIds.add(img.id);
+  renderCards(currentGridImages, { showScore: currentShowScore });
+  renderSelectionBar();
+});
+
+document.getElementById('btnSelectClear').addEventListener('click', () => {
+  selectedImageIds.clear();
+  renderCards(currentGridImages, { showScore: currentShowScore });
+  renderSelectionBar();
+});
+
+document.getElementById('btnMoveSelected').addEventListener('click', async () => {
+  const folder = await api().pick_folder();
+  if (!folder) return;
+  const result = await api().move_images(Array.from(selectedImageIds), folder);
+  if (!result.ok) {
+    const err = errMsg(result, 'moveFailed');
+    setStatus(err);
+    showCenterToast(err);
+    return;
+  }
+  const msg = result.failed.length
+    ? tr('moveFailedSome', { moved: result.moved, failed: result.failed.length })
+    : tr('moveSucceeded', { moved: result.moved });
+  setStatus(msg);
+  showCenterToast(msg);
+  selectedImageIds.clear();
+  renderSelectionBar();
+  await refreshGrid();
+});
+
+document.getElementById('btnDeleteSelected').addEventListener('click', async () => {
+  const count = selectedImageIds.size;
+  if (!count) return;
+  if (!window.confirm(tr('deleteConfirm', { count }))) return;
+  const result = await api().delete_images(Array.from(selectedImageIds));
+  if (!result.ok) {
+    setStatus(errMsg(result, 'deleteFailed'));
+    return;
+  }
+  setStatus(result.failed.length
+    ? tr('deleteFailedSome', { deleted: result.deleted, failed: result.failed.length })
+    : tr('deleteSucceeded', { deleted: result.deleted }));
+  selectedImageIds.clear();
+  renderSelectionBar();
+  await refreshGrid();
+  await refreshTags();
+});
+
+function applyGalleryMode() {
+  document.getElementById('grid').classList.toggle('galleryMode', galleryModeOn);
+  document.getElementById('cardSizeWrap').style.display = galleryModeOn ? 'none' : '';
+}
+
+document.getElementById('btnGalleryMode').addEventListener('click', () => {
+  galleryModeOn = !galleryModeOn;
+  localStorage.setItem('galleryMode', galleryModeOn ? '1' : '0');
+  applyGalleryMode();
+  renderCards(currentGridImages, { showScore: currentShowScore });
+});
+
+applyGalleryMode();
+
+function startModalRename() {
+  const img = tagModalImage;
+  const filenameSpan = document.getElementById('tagModalFilename');
+  filenameSpan.outerHTML = '<input type="text" class="renameInput" id="tagModalFilename">';
+  const input = document.getElementById('tagModalFilename');
+  input.value = img.filename;
+  input.focus();
+  input.select();
+
+  let done = false;
+  const finish = async (commit) => {
+    if (done) return;
+    done = true;
+    if (commit) {
+      const newName = input.value.trim();
+      if (newName && newName !== img.filename) {
+        const result = await api().rename_image(img.id, newName);
+        if (!result.ok) {
+          setTagModalStatus(errMsg(result, 'renameFailed'));
+        } else {
+          img.filename = result.filename;
+          img.full_path = result.full_path;
+          setTagModalStatus('');
+          await refreshGrid();
+        }
+      }
+    }
+    input.outerHTML = `<span class="filename" id="tagModalFilename">${img.filename}</span>`;
+    document.getElementById('tagModalRenameBtn').style.visibility = '';
+  };
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') finish(true);
+    if (e.key === 'Escape') finish(false);
+  });
+  input.addEventListener('blur', () => finish(true));
+}
+
+function setTagPanelEnabled(enabled) {
+  const panel = document.getElementById('tagPanel');
+  panel.classList.toggle('disabledPanel', !enabled);
+  document.getElementById('tagPanelDisabledNote').style.display = enabled ? 'none' : 'block';
+  panel.querySelectorAll('input, button').forEach((el) => { el.disabled = !enabled; });
+}
+
+function applySimilarFilter() {
+  const filtered = similarThreshold > 0
+    ? similarFullResults.filter((img) => img.similarity >= similarThreshold / 100)
+    : similarFullResults;
+  renderCards(filtered, { showScore: true });
+  setStatus(filtered.length ? tr('similarCount', { count: filtered.length }) : tr('noSimilarMatch'));
+}
+
+async function refreshSimilarResults() {
+  document.getElementById('similarBaseImg').src = similarTarget.thumbnail_url ?? '';
+  document.getElementById('similarLabel').textContent = tr('similarLabelText', { filename: similarTarget.filename });
+  try {
+    similarFullResults = await api().similar_images(similarTarget.id);
+    applySimilarFilter();
+  } catch (err) {
+    console.error(err);
+    setStatus(tr('similarFetchError', { err }));
+  }
+}
+
+function syncThresholdUI() {
+  document.getElementById('simThresholdSlider').value = similarThreshold;
+  document.getElementById('simThresholdInput').value = similarThreshold || '';
+  document.getElementById('simThresholdLabel').textContent =
+    similarThreshold > 0 ? tr('thresholdAtLeast', { pct: similarThreshold }) : tr('thresholdNone');
+}
+
+function setSimilarThreshold(val) {
+  similarThreshold = Math.max(0, Math.min(100, val || 0));
+  syncThresholdUI();
+  applySimilarFilter();
+}
+
+async function showSimilar(img) {
+  similarTarget = img;
+  similarThreshold = 0;
+  syncThresholdUI();
+  document.getElementById('similarBar').style.display = 'flex';
+  document.getElementById('similarFilterBar').style.display = 'flex';
+  document.getElementById('content').classList.add('similarMode');
+  setTagPanelEnabled(false);
+  await refreshSimilarResults();
+}
+
+document.getElementById('similarBack').addEventListener('click', async () => {
+  similarTarget = null;
+  similarFullResults = [];
+  setTagPanelEnabled(true);
+  document.getElementById('similarBar').style.display = 'none';
+  document.getElementById('similarFilterBar').style.display = 'none';
+  document.getElementById('content').classList.remove('similarMode');
+  await refreshGrid();
+});
+
+document.getElementById('simThresholdSlider').addEventListener('input', (e) => {
+  setSimilarThreshold(parseInt(e.target.value, 10));
+});
+
+document.getElementById('simThresholdInput').addEventListener('input', (e) => {
+  setSimilarThreshold(parseInt(e.target.value, 10));
+});
+
+async function refreshGrid() {
+  if (similarTarget) {
+    await refreshSimilarResults();
+    return;
+  }
+  let images;
+  try {
+    const mode = currentTagMode();
+    images = selectedTags.size
+      ? await api().filter_images(Array.from(selectedTags), mode)
+      : await api().list_images();
+  } catch (err) {
+    console.error(err);
+    setStatus(tr('filterError', { err }));
+    return;
+  }
+  renderCards(images);
+  if (selectedTags.size) {
+    setStatus(tr('filteredCount', { count: images.length }));
+  }
+}
+
+let allTagsCache = [];
+
+function renderTagRow(t) {
+  const row = document.createElement('div');
+  row.className = 'tagRow' + (selectedTags.has(t.name) ? ' active' : '');
+  const checked = selectedTags.has(t.name) ? 'checked' : '';
+  const displayName = t.ja ? `${t.name}（${t.ja}）` : t.name;
+  row.innerHTML = `<label class="tagLabel">
+                      <input type="checkbox" value="${t.name}" ${checked}>
+                      <span class="tagName">${displayName}</span>
+                    </label>
+                    <button class="tagTranslateBtn" title="${tr('editTranslation')}">📝</button>
+                    <span class="cnt">${t.count}</span>`;
+  row.querySelector('input').addEventListener('change', async (e) => {
+    if (e.target.checked) selectedTags.add(t.name);
+    else selectedTags.delete(t.name);
+    row.classList.toggle('active', e.target.checked);
+    await refreshGrid();
+  });
+  row.querySelector('.tagTranslateBtn').addEventListener('click', (e) => {
+    e.preventDefault();
+    startTagTranslate(row, t);
+  });
+  return row;
+}
+
+function renderTagList(tags) {
+  const list = document.getElementById('tagList');
+  list.innerHTML = '';
+  for (const t of tags) {
+    list.appendChild(renderTagRow(t));
+  }
+}
+
+function applyTagSearch() {
+  const q = document.getElementById('tagSearch').value.trim().toLowerCase();
+  if (!q) {
+    renderTagList(allTagsCache);
+    return;
+  }
+  const filtered = allTagsCache.filter((t) =>
+    t.name.toLowerCase().includes(q) || (t.ja && t.ja.toLowerCase().includes(q))
+  );
+  renderTagList(filtered);
+}
+
+async function refreshTags() {
+  allTagsCache = await api().list_tags();
+  applyTagSearch();
+}
+
+document.getElementById('tagSearch').addEventListener('input', applyTagSearch);
+
+function startTagTranslate(row, t) {
+  const label = row.querySelector('.tagLabel');
+  label.innerHTML = `<input type="text" class="tagTranslateInput">`;
+  const input = label.querySelector('input');
+  input.value = t.ja || '';
+  input.focus();
+  input.select();
+
+  let done = false;
+  const finish = async (commit) => {
+    if (done) return;
+    done = true;
+    if (commit) {
+      const newJa = input.value.trim();
+      if (newJa !== (t.ja || '')) {
+        await api().set_tag_translation(t.name, newJa);
+      }
+    }
+    await refreshTags();
+  };
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') finish(true);
+    if (e.key === 'Escape') finish(false);
+  });
+  input.addEventListener('blur', () => finish(true));
+}
+
+function syncModeToggleActive() {
+  document.querySelectorAll('input[name="tagMode"]').forEach((el) => {
+    el.closest('label').classList.toggle('active', el.checked);
+  });
+}
+
+document.querySelectorAll('input[name="tagMode"]').forEach((el) => {
+  el.addEventListener('change', () => {
+    syncModeToggleActive();
+    refreshGrid();
+  });
+});
+syncModeToggleActive();
+
+document.getElementById('tagClear').addEventListener('click', async () => {
+  selectedTags.clear();
+  await refreshTags();
+  await refreshGrid();
+});
+
+// ---- タグ絞り込みのプリセット（保存・一覧・適用・削除） ----
+
+function switchTagTab(which) {
+  const isFilter = which === 'filter';
+  document.getElementById('tabBtnFilter').classList.toggle('active', isFilter);
+  document.getElementById('tabBtnPresets').classList.toggle('active', !isFilter);
+  document.getElementById('tagFilterView').style.display = isFilter ? '' : 'none';
+  document.getElementById('presetView').style.display = isFilter ? 'none' : '';
+  if (!isFilter) refreshPresets();
+}
+document.getElementById('tabBtnFilter').addEventListener('click', () => switchTagTab('filter'));
+document.getElementById('tabBtnPresets').addEventListener('click', () => switchTagTab('presets'));
+
+function applyPreset(preset) {
+  selectedTags.clear();
+  for (const name of preset.tag_names) selectedTags.add(name);
+  const radio = document.querySelector(`input[name="tagMode"][value="${preset.mode}"]`);
+  if (radio) radio.checked = true;
+  syncModeToggleActive();
+  switchTagTab('filter');
+  refreshTags();
+  refreshGrid();
+}
+
+async function refreshPresets() {
+  const presets = await api().list_presets();
+  const list = document.getElementById('presetList');
+  list.innerHTML = '';
+  document.getElementById('presetEmpty').style.display = presets.length ? 'none' : '';
+  for (const preset of presets) {
+    const row = document.createElement('div');
+    row.className = 'tagRow presetRow';
+    row.innerHTML = `<span class="presetName">📌 ${preset.name}</span>
+                      <button class="presetDelete" title="${tr('presetDelete')}">✕</button>`;
+    row.querySelector('.presetName').addEventListener('click', () => applyPreset(preset));
+    row.querySelector('.presetDelete').addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await api().delete_preset(preset.id);
+      await refreshPresets();
+    });
+    list.appendChild(row);
+  }
+}
+
+document.getElementById('presetSaveBtn').addEventListener('click', async () => {
+  if (selectedTags.size === 0) {
+    setStatus(tr('tags_required'));
+    return;
+  }
+  const name = window.prompt(tr('presetNamePrompt'));
+  if (!name) return;
+  const result = await api().save_preset(name, [...selectedTags], currentTagMode());
+  if (!result.ok) {
+    setStatus(errMsg(result));
+    return;
+  }
+  await refreshPresets();
+  setStatus(tr('presetSaved'));
+});
+
+function setStatus(text) {
+  document.getElementById('status').textContent = text;
+}
+
+async function runAutoScan() {
+  setStatus(tr('scanning'));
+  const result = await api().scan_all();
+  if (!result.ok) {
+    setStatus(errMsg(result));
+    return;
+  }
+  setStatus(tr('scanComplete', { added: result.added, skipped: result.skipped, removed: result.removed }));
+}
+
+let pollTimer = null;
+
+function showCenterToast(text) {
+  document.getElementById('centerToastText').textContent = text;
+  document.getElementById('centerToast').classList.add('show');
+}
+document.getElementById('centerToastOk').addEventListener('click', () => {
+  document.getElementById('centerToast').classList.remove('show');
+});
+
+function showCenterSpinner() {
+  document.getElementById('centerSpinner').classList.add('show');
+}
+function hideCenterSpinner() {
+  document.getElementById('centerSpinner').classList.remove('show');
+}
+
+function playCompletionBeep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.frequency.value = 880;
+    osc.type = 'sine';
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.4);
+  } catch (e) {
+    console.error('beep failed', e);
+  }
+}
+
+function pollProgress() {
+  if (pollTimer) return;
+  pollTimer = setInterval(async () => {
+    const p = await api().get_tagging_progress();
+    const wrap = document.getElementById('progressWrap');
+    const btnTag = document.getElementById('btnTag');
+    if (p.running || p.total > 0) {
+      updateTaggingButton(p.cancel_requested ? 'stopping' : 'running');
+      wrap.style.display = 'block';
+      const pct = p.total ? Math.round((p.done / p.total) * 100) : 0;
+      document.getElementById('progressFill').style.width = pct + '%';
+      document.getElementById('progressText').textContent =
+        tr('taggingProgress', { total: p.total, done: p.done, current: p.current });
+    }
+    if (!p.running) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+      updateTaggingButton('idle');
+      let msg;
+      if (p.error) {
+        msg = tr('taggingError', { error: p.error });
+      } else if (p.cancelled) {
+        msg = tr('taggingStopped', { done: p.done, total: p.total });
+      } else if (p.total > 0) {
+        msg = tr('taggingComplete', { done: p.done, total: p.total });
+      } else {
+        msg = tr('taggingNoTargets');
+      }
+      setStatus(msg);
+      hideCenterSpinner();
+      if (!p.cancelled) {
+        showCenterToast(msg);
+        playCompletionBeep();
+      }
+      await refreshGrid();
+      await refreshTags();
+    }
+  }, 1000);
+}
+
+async function startTaggingFlow() {
+  const btnTag = document.getElementById('btnTag');
+  const result = await api().start_tagging();
+  if (!result.ok) {
+    setStatus(errMsg(result, 'taggingStartFailed'));
+    return;
+  }
+  updateTaggingButton('running');
+  setStatus(tr('taggingRunning', { workers: result.workers }));
+  showCenterSpinner();
+  pollProgress();
+}
+
+async function stopTaggingFlow() {
+  updateTaggingButton('stopping');
+  setStatus(tr('taggingStopRequested'));
+  const result = await api().stop_tagging();
+  if (!result.ok) {
+    updateTaggingButton('running');
+    setStatus(errMsg(result));
+  }
+}
+
+document.getElementById('btnTag').addEventListener('click', () => {
+  const mode = document.getElementById('btnTag').dataset.mode;
+  if (mode === 'running') stopTaggingFlow();
+  else if (mode === 'idle') startTaggingFlow();
+});
+
+// ---- ドラッグ＆ドロップでの画像取り込み ----
+
+function arrayBufferToBase64(buffer) {
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+function readEntryFiles(entry) {
+  return new Promise((resolve) => {
+    if (entry.isFile) {
+      entry.file((file) => resolve([file]), () => resolve([]));
+      return;
+    }
+    if (entry.isDirectory) {
+      const reader = entry.createReader();
+      const all = [];
+      const readBatch = () => {
+        reader.readEntries(async (entries) => {
+          if (!entries.length) {
+            const nested = await Promise.all(all);
+            resolve(nested.flat());
+            return;
+          }
+          for (const e of entries) all.push(readEntryFiles(e));
+          readBatch();
+        }, () => resolve([]));
+      };
+      readBatch();
+      return;
+    }
+    resolve([]);
+  });
+}
+
+async function collectDroppedFiles(dataTransfer) {
+  const items = Array.from(dataTransfer.items || []);
+  const entries = items.map((item) => item.webkitGetAsEntry && item.webkitGetAsEntry()).filter(Boolean);
+  if (!entries.length) {
+    return Array.from(dataTransfer.files || []);
+  }
+  const lists = await Promise.all(entries.map(readEntryFiles));
+  return lists.flat();
+}
+
+const SUPPORTED_NAME_RE = /\.(jpg|jpeg|png|webp|bmp|gif|txt|md|log|pdf)$/i;
+let dragDepth = 0;
+
+document.addEventListener('dragenter', (e) => {
+  e.preventDefault();
+  dragDepth++;
+  document.getElementById('dropOverlay').style.display = 'flex';
+});
+
+document.addEventListener('dragover', (e) => {
+  e.preventDefault();
+});
+
+document.addEventListener('dragleave', () => {
+  dragDepth = Math.max(0, dragDepth - 1);
+  if (dragDepth === 0) document.getElementById('dropOverlay').style.display = 'none';
+});
+
+document.addEventListener('drop', async (e) => {
+  e.preventDefault();
+  dragDepth = 0;
+  document.getElementById('dropOverlay').style.display = 'none';
+
+  const files = (await collectDroppedFiles(e.dataTransfer)).filter((f) => SUPPORTED_NAME_RE.test(f.name));
+  if (!files.length) {
+    setStatus(tr('droppedNoImages'));
+    return;
+  }
+  if (files.length >= 10) {
+    const ok = window.confirm(tr('importConfirm', { count: files.length }));
+    if (!ok) return;
+  }
+
+  let imported = 0;
+  let skipped = 0;
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    setStatus(tr('importing', { current: i + 1, total: files.length }));
+    try {
+      const buf = await file.arrayBuffer();
+      const b64 = arrayBufferToBase64(buf);
+      const result = await api().import_dropped_file(file.name, b64);
+      if (result.ok) imported++; else skipped++;
+    } catch (err) {
+      console.error(err);
+      skipped++;
+    }
+  }
+
+  setStatus(tr('importComplete', { imported, skipped }));
+  await refreshLibraryState();
+  await refreshGrid();
+  await refreshTags();
+  if (imported > 0) await startTaggingFlow();
+});
+
+// ---- タグパネルの幅をドラッグで可変に ----
+const tagPanel = document.getElementById('tagPanel');
+const TAG_PANEL_MIN = 160;
+const TAG_PANEL_MAX = 500;
+
+(function restoreTagPanelWidth() {
+  const saved = parseInt(localStorage.getItem('tagPanelWidth') || '', 10);
+  if (saved && saved >= TAG_PANEL_MIN && saved <= TAG_PANEL_MAX) {
+    tagPanel.style.width = saved + 'px';
+    tagPanel.style.flexBasis = saved + 'px';
+  }
+})();
+
+document.getElementById('tagResizeHandle').addEventListener('mousedown', (e) => {
+  e.preventDefault();
+  const startX = e.clientX;
+  const startWidth = tagPanel.getBoundingClientRect().width;
+
+  function onMove(ev) {
+    let width = startWidth + (ev.clientX - startX);
+    width = Math.max(TAG_PANEL_MIN, Math.min(TAG_PANEL_MAX, width));
+    tagPanel.style.width = width + 'px';
+    tagPanel.style.flexBasis = width + 'px';
+  }
+  function onUp() {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    localStorage.setItem('tagPanelWidth', Math.round(tagPanel.getBoundingClientRect().width));
+  }
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+});
+
+// ---- カード表示サイズの3段階切替 ----
+const CARD_SIZES = ['130px', '180px', '240px'];
+
+function applyCardSize(step) {
+  document.documentElement.style.setProperty('--card-min', CARD_SIZES[step]);
+}
+
+(function restoreCardSize() {
+  const saved = parseInt(localStorage.getItem('cardSizeStep') || '1', 10);
+  const step = CARD_SIZES[saved] ? saved : 1;
+  document.getElementById('cardSizeSlider').value = step;
+  applyCardSize(step);
+})();
+
+document.getElementById('cardSizeSlider').addEventListener('input', (e) => {
+  const step = parseInt(e.target.value, 10);
+  applyCardSize(step);
+  localStorage.setItem('cardSizeStep', step);
+});
+
+// ---- 画像ごとのタグ確認・追加・削除ポップアップ ----
+let dictionaryTagsCache = null;
+let tagModalImage = null;
+let tagModalCurrentTags = [];
+let suggestActiveIndex = -1;
+
+async function getDictionaryTags() {
+  if (!dictionaryTagsCache) {
+    dictionaryTagsCache = await api().list_dictionary_tags();
+  }
+  return dictionaryTagsCache;
+}
+
+function setTagModalStatus(text) {
+  document.getElementById('tagModalStatus').textContent = text || '';
+}
+
+function renderTagModalChips() {
+  const wrap = document.getElementById('tagModalChips');
+  wrap.innerHTML = '';
+  if (!tagModalCurrentTags.length) {
+    wrap.innerHTML = `<span style="color:#888; font-size:0.74rem;">${tr('noTagsYet')}</span>`;
+    return;
+  }
+  for (const t of tagModalCurrentTags) {
+    const chip = document.createElement('span');
+    chip.className = 'tagChip';
+    const label = t.ja ? `${t.name}（${t.ja}）` : t.name;
+    chip.innerHTML = `<span class="tagChipName" title="${tr('filterByThisTag')}">${label}</span><button title="${tr('removeTagTitle')}">✕</button>`;
+    chip.querySelector('.tagChipName').addEventListener('click', async () => {
+      selectedTags.add(t.name);
+      applyTagSearch();
+      await refreshGrid();
+    });
+    chip.querySelector('button').addEventListener('click', async () => {
+      const result = await api().remove_image_tag(tagModalImage.id, t.name);
+      if (!result.ok) {
+        setTagModalStatus(errMsg(result, 'deleteFailed'));
+        return;
+      }
+      tagModalCurrentTags = tagModalCurrentTags.filter((x) => x.name !== t.name);
+      renderTagModalChips();
+      setTagModalStatus('');
+      await refreshTags();
+    });
+    wrap.appendChild(chip);
+  }
+}
+
+function hideSuggestBox() {
+  const box = document.getElementById('tagModalSuggest');
+  box.style.display = 'none';
+  box.innerHTML = '';
+  suggestActiveIndex = -1;
+}
+
+function positionSuggestBox(box) {
+  const input = document.getElementById('tagModalAddInput');
+  const rect = input.getBoundingClientRect();
+  const spaceBelow = window.innerHeight - rect.bottom;
+  const maxHeight = 220;
+  box.style.left = rect.left + 'px';
+  box.style.width = rect.width + 'px';
+  if (spaceBelow >= Math.min(maxHeight, 120) || spaceBelow >= rect.top) {
+    box.style.top = rect.bottom + 'px';
+    box.style.bottom = '';
+  } else {
+    box.style.top = '';
+    box.style.bottom = (window.innerHeight - rect.top) + 'px';
+  }
+}
+
+async function showSuggestions(query) {
+  const box = document.getElementById('tagModalSuggest');
+  if (!query) {
+    hideSuggestBox();
+    return;
+  }
+  const q = query.toLowerCase();
+  const dict = await getDictionaryTags();
+  const appliedNames = new Set(tagModalCurrentTags.map((t) => t.name));
+  const matches = dict
+    .filter((t) => !appliedNames.has(t.name))
+    .filter((t) => t.name.toLowerCase().includes(q) || (t.ja && t.ja.toLowerCase().includes(q)))
+    .slice(0, 20);
+
+  if (!matches.length) {
+    box.innerHTML = `<div class="suggestItem" style="color:#888; cursor:default;">${tr('noSuggestions')}</div>`;
+    positionSuggestBox(box);
+    box.style.display = 'block';
+    suggestActiveIndex = -1;
+    return;
+  }
+
+  box.innerHTML = '';
+  matches.forEach((t) => {
+    const item = document.createElement('div');
+    item.className = 'suggestItem';
+    item.textContent = t.ja ? `${t.name}（${t.ja}）` : t.name;
+    item.addEventListener('click', () => addTagFromSuggestion(t));
+    box.appendChild(item);
+  });
+  positionSuggestBox(box);
+  box.style.display = 'block';
+  suggestActiveIndex = -1;
+}
+
+async function addTagToImage(name) {
+  if (tagModalCurrentTags.some((t) => t.name === name)) return;
+  const result = await api().add_image_tag(tagModalImage.id, name);
+  const input = document.getElementById('tagModalAddInput');
+  if (!result.ok) {
+    setTagModalStatus(errMsg(result, 'addFailed'));
+    return;
+  }
+  tagModalCurrentTags.push({ name: result.name, ja: result.ja });
+  tagModalCurrentTags.sort((a, b) => a.name.localeCompare(b.name));
+  renderTagModalChips();
+  setTagModalStatus('');
+  input.value = '';
+  hideSuggestBox();
+  await refreshTags();
+}
+
+async function addTagFromSuggestion(t) {
+  await addTagToImage(t.name);
+}
+
+function renderMetadataSection(metadata) {
+  const section = document.getElementById('tagModalMetaSection');
+  const box = document.getElementById('tagModalMeta');
+  const keys = Object.keys(metadata || {});
+  if (!keys.length) {
+    section.style.display = 'none';
+    box.textContent = '';
+    return;
+  }
+  section.style.display = 'block';
+  box.textContent = keys.map((k) => `[${k}]\n${metadata[k]}`).join('\n\n');
+}
+
+async function openTagModal(img) {
+  tagModalImage = img;
+  document.getElementById('tagModalImg').src = img.thumbnail_url ?? '';
+  document.getElementById('tagModalFilename').textContent = img.filename;
+  document.getElementById('tagModalAddInput').value = '';
+  setTagModalStatus('');
+  hideSuggestBox();
+  document.getElementById('tagModalOverlay').style.display = 'flex';
+
+  // 文書プレビューの表示制御
+  const isDoc = img.filename.match(/\.(txt|md|log|pdf)$/i);
+  document.getElementById('tagModalDocPreviewSection').style.display = isDoc ? 'block' : 'none';
+  if (isDoc) {
+    document.getElementById('tagModalDocPreview').textContent = '読み込み中...';
+    try {
+      const docRes = await api().get_document_text(img.id);
+      if (docRes.ok) {
+        document.getElementById('tagModalDocPreview').textContent = docRes.text || '(テキストなし)';
+      } else {
+        document.getElementById('tagModalDocPreview').textContent = errMsg(docRes, 'file_read_failed');
+      }
+    } catch (e) {
+      console.error(e);
+      document.getElementById('tagModalDocPreview').textContent = tr('file_read_failed');
+    }
+  }
+
+  tagModalCurrentTags = await api().get_image_tags(img.id);
+  renderTagModalChips();
+
+  const metaResult = await api().get_image_metadata(img.id);
+  renderMetadataSection(metaResult.ok ? metaResult.metadata : {});
+}
+
+async function closeTagModal() {
+  document.getElementById('tagModalOverlay').style.display = 'none';
+  tagModalImage = null;
+  await refreshTags();
+  await refreshGrid();
+}
+
+document.getElementById('tagModalClose').addEventListener('click', closeTagModal);
+document.getElementById('tagModalOverlay').addEventListener('click', (e) => {
+  if (e.target.id === 'tagModalOverlay') closeTagModal();
+});
+
+document.getElementById('tagModalRenameBtn').addEventListener('click', (e) => {
+  e.currentTarget.style.visibility = 'hidden';
+  startModalRename();
+});
+
+document.getElementById('tagModalFindSimilar').addEventListener('click', async () => {
+  const img = tagModalImage;
+  document.getElementById('tagModalOverlay').style.display = 'none';
+  tagModalImage = null;
+  await refreshTags();
+  await showSimilar(img);
+});
+
+async function showOriginalImagePreview(img) {
+  const previewImg = document.getElementById('imgPreviewImg');
+  previewImg.src = img.thumbnail_url ?? '';
+  document.getElementById('imgPreviewOverlay').style.display = 'flex';
+  const result = await api().get_original_image(img.id);
+  if (result.ok) previewImg.src = result.data_url;
+}
+
+document.getElementById('tagModalImg').addEventListener('click', () => {
+  if (!tagModalImage) return;
+  showOriginalImagePreview(tagModalImage);
+});
+
+document.getElementById('imgPreviewOverlay').addEventListener('click', () => {
+  document.getElementById('imgPreviewOverlay').style.display = 'none';
+});
+
+document.getElementById('tagModalAddInput').addEventListener('input', (e) => {
+  showSuggestions(e.target.value.trim());
+});
+document.getElementById('tagModalAddInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') hideSuggestBox();
+  if (e.key === 'Enter') {
+    const name = e.target.value.trim();
+    if (name) addTagToImage(name);
+  }
+});
+
+document.getElementById('btnEmbedTags').addEventListener('click', async () => {
+  if (!tagModalImage) return;
+  setTagModalStatus('処理中...');
+  const res = await api().embed_tags_to_filename(tagModalImage.id);
+  if (!res.ok) {
+    setTagModalStatus(errMsg(res, 'renameFailed'));
+    return;
+  }
+  // ファイル名の表示などを更新
+  tagModalImage.filename = res.filename;
+  tagModalImage.full_path = res.full_path;
+  document.getElementById('tagModalFilename').textContent = res.filename;
+  setTagModalStatus(tr('embedSucceeded'));
+  await refreshGrid();
+});
+
+document.getElementById('btnExportSidecar').addEventListener('click', async () => {
+  if (!tagModalImage) return;
+  setTagModalStatus('処理中...');
+  const res = await api().export_sidecar_json(tagModalImage.id);
+  if (!res.ok) {
+    setTagModalStatus(errMsg(res, 'write_failed'));
+    return;
+  }
+  setTagModalStatus(tr('exportSucceeded'));
+});
+
+window.addEventListener('pywebviewready', async () => {
+  const state = await refreshLibraryState();
+  if (state.active_root) await runAutoScan();
+  await refreshGrid();
+  await refreshTags();
+});
+</script>
+</body>
+</html>
